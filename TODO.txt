@@ -1,0 +1,4 @@
+- holes for programmer pins (at least 5): 25 mil (0.635 mm)
+- when EWMA is still -1, UI reads -50.1 °C
+- update V-USB?
+- measure and calculate humidity
