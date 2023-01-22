@@ -5,17 +5,19 @@
  * modify it under the terms of the GNU General Public License as
  * published by the Free Software Foundation, version 2.
  *
- * Firmware for USBTherm, a simple AVR micro controller based USB thermometer.
+ * Firmware for USBTherm2, a simple AVR micro controller based USB thermometer
+ * and hygrometer.
  *
- * Created on: 26.05.2016
- *     Author: dode@luniks.net
+ * Just fits on a ATtiny45, currently 3898 bytes (95.2% Full)
+ *
+ * Created on: 15.01.2023
+ *     Author: torsten.roemer@luniks.net
  *
  */
 
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <avr/io.h>
 #include <avr/interrupt.h>
 #include <avr/sleep.h>
 #include <avr/wdt.h>
@@ -25,12 +27,12 @@
 /* #include "usbdrv/oddebug.h" */
 
 /* The pins for V-USB are set up in usbdrv/usbconfig.h */
-#define PIN_TEMP        2 // ADC2 (PB4) single ended input
-#define PIN_HUMI        3 // ADC3 (PB3) single ended input
+#define PIN_TMP         2 // ADC2 (PB4) single ended input
+#define PIN_RH          3 // ADC3 (PB3) single ended input
 #define AREF_MV         5000
 
 /* Weight of the exponential weighted moving average as bit shift */
-#define EWMA_BS         2
+#define EWMA_BS         4
 
 /* Output of the TMP36 is 750 mV @ 25°C, 10 mV per °C */
 #define TMP36_MV_0C     500
@@ -39,10 +41,11 @@
 #define INTS_SEC        F_CPU / (1024UL * 255)
 
 /* Request from the kernel driver */
-#define CUSTOM_REQ_TEMP 0
+#define CUSTOM_REQ_TMP  0
 
 static volatile uint8_t ints = 0;
-static int32_t mVAvgTmp = -1;
+static uint32_t mVAvgTmp = -1;
+static uint32_t mvAvgRh = -1;
 
 ISR(TIMER0_COMPA_vect) {
     ints++;
@@ -56,7 +59,7 @@ EMPTY_INTERRUPT(ADC_vect);
 static void initTimer(void) {
     // timer0 clear timer on compare match mode, TOP OCR0A
     TCCR0A |= (1 << WGM01);
-    // timer0 clock prescaler/1024/255 ~ 46 Hz @ 12 MHz ~ 61 Hz @ 16 MHz
+    // timer0 clock prescaler/1024/255 ~ 63 Hz @ 16.5 MHz
     TCCR0B |= (1 << CS02) | (1 << CS00);
     OCR0A = 255;
 
@@ -70,7 +73,8 @@ static void initTimer(void) {
 static void initADC(void) {
     set_sleep_mode(SLEEP_MODE_IDLE);
 
-    // disable digital input on the ADC inputs to reduce digital noise
+    // disable digital input on the ADC inputs to reduce power consumption
+    // and digital noise
     DIDR0 = 0b00011000;
     // ADC clock prescaler/128 ~ 129 kHz @ 16.5 MHz
     ADCSRA |= (1 << ADPS2) | (1 << ADPS1) | (1 << ADPS0);
@@ -106,7 +110,7 @@ static int32_t measure(uint8_t pin, int32_t mVAvg) {
         overValue += ADC;
     }
 
-    int16_t mV = (((overValue >> 2) * AREF_MV) >> 12);
+    uint32_t mV = ((overValue >> 2) * AREF_MV) >> 12;
 
     if (mVAvg == -1) {
         // use first measurement as initial value for average
@@ -118,33 +122,31 @@ static int32_t measure(uint8_t pin, int32_t mVAvg) {
 }
 
 /**
- * Called by the driver to read the temperature value in °C x10.
- */
-uchar usbFunctionRead(uchar *data, uchar len) {
-
-    /**
-     * The temperature value is short enough to be read at once.
-     * TODO okay like that?
-     */
-    int16_t tempx10 = (mVAvgTmp >> EWMA_BS) - TMP36_MV_0C;
-    snprintf((char *)data, len, "%d", tempx10);
-
-    return len;
-}
-
-/**
  * Sets up the implemented requests.
  */
 usbMsgLen_t usbFunctionSetup(uchar data[8]) {
     usbRequest_t *req = (void *)data;
 
     /*
-     * The only implemented request - tells the driver to read data
-     * (the temperature value) with usbFunctionRead().
-     * Also, USB_CFG_IMPLEMENT_FN_READ must be set to 1 in usbdrv/usbconfig.h.
+     * The only implemented request. It calculates the temperature and humidity
+     * from the respective average measurement value and transfers both 
+     * multiplied by 10 and separated by the pipe character to the host.
+     * This is a nice alternative to usbFunctionRead() allowing to write more 
+     * than 8 bytes at once.
      */
-    if (req->bRequest == CUSTOM_REQ_TEMP) {
-        return USB_NO_MSG;
+    if (req->bRequest == CUSTOM_REQ_TMP) {
+        // temperature in °C multiplied by 10
+        uint16_t tmpx10 = (mVAvgTmp >> EWMA_BS) - TMP36_MV_0C;
+        // relative humidity in % multiplied by 10
+        uint32_t rhx10 = (mvAvgRh * 100 - (75750 << EWMA_BS)) / (318 << EWMA_BS);
+        // temperature compensation of relative humidity
+        rhx10 = (rhx10 * 1000000) / (1054600 - tmpx10 * 216);
+
+        static char msg[16];
+        snprintf(msg, sizeof(msg), "%d|%ld", tmpx10, rhx10);
+        usbMsgPtr = (usbMsgPtr_t)msg;
+
+        return sizeof(msg);
     }
 
     /**
@@ -154,13 +156,14 @@ usbMsgLen_t usbFunctionSetup(uchar data[8]) {
 }
 
 /**
- * From https://codeandlife.com/2012/02/22/v-usb-with-attiny45-attiny85-without-a-crystal/
+ * Calibrates the internal oscillator based on measurements from V-USB.
+ * Called by V-USB after device reset. Thanks to Joonas Pihlajamaa, 
+ * https://codeandlife.com/2012/02/22/v-usb-with-attiny45-attiny85-without-a-crystal/
  */
-// Called by V-USB after device reset
 void hadUsbReset() {
     int frameLength, targetLength = (unsigned)(1499 * (double)F_CPU / 10.5e6 + 0.5);
     int bestDeviation = 9999;
-    uchar trialCal, bestCal = 0, step, region;
+    uchar trialCal = 0, bestCal = 0, step = 0, region = 0;
 
     // do a binary search in regions 0-127 and 128-255 to get optimum OSCCAL
     for (region = 0; region <= 1; region++) {
@@ -199,12 +202,13 @@ int main(void) {
     while (true) {
 
         /**
-         * About every second, turn on the LED, measure the temperature,
-         * print the temperature via USART, turn off the LED.
+         * Measure temperature and humidity and update the average values
+         * once about every second.
          */
         if (ints >= INTS_SEC) {
             ints = 0;
-            mVAvgTmp = measure(PIN_TEMP, mVAvgTmp);
+            mVAvgTmp = measure(PIN_TMP, mVAvgTmp);
+            mvAvgRh = measure(PIN_RH, mvAvgRh);
         }
         usbPoll();
     }

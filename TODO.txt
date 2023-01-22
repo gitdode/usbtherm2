@@ -1,4 +1,6 @@
 - holes for programmer pins (at least 5): 25 mil (0.635 mm)
 - when EWMA is still -1, UI reads -50.1 °C
 - update V-USB?
-- measure and calculate humidity
+x measure and calculate humidity
+- add LED?
+- add capaciator to TMP36? No, there is already a 100nF and 10uF
