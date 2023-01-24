@@ -143,6 +143,10 @@ usbMsgLen_t usbFunctionSetup(uchar data[8]) {
      * Setting usbMsgPtr is a nice alternative to using usbFunctionRead().
      */
     if (req->bRequest == CUSTOM_REQ_TMP) {
+        if (mVAvgTmp == -1 || mvAvgRh == -1) {
+            return 0;
+        }
+
         // temperature in °C multiplied by 10
         uint16_t tmpx10 = (mVAvgTmp >> EWMA_BS) - TMP36_MV_0C;
         // relative humidity in % multiplied by 10
