@@ -8,7 +8,7 @@
  * Firmware for USBTherm2, a simple AVR micro controller based USB thermometer
  * and hygrometer.
  *
- * Just fits on a ATtiny45, currently 3898 bytes (95.2% Full)
+ * Just fits on an ATtiny45 with ~ 3900 bytes (95% full)
  *
  * Created on: 15.01.2023
  *     Author: torsten.roemer@luniks.net
@@ -29,6 +29,7 @@
 /* The pins for V-USB are set up in usbdrv/usbconfig.h */
 #define PIN_TMP         2 // ADC2 (PB4) single ended input
 #define PIN_RH          3 // ADC3 (PB3) single ended input
+#define PIN_LED         PB0
 #define AREF_MV         5000
 
 /* Weight of the exponential weighted moving average as bit shift */
@@ -40,7 +41,7 @@
 /* Timer0 interrupts per second */
 #define INTS_SEC        F_CPU / (1024UL * 255)
 
-/* Request from the kernel driver */
+/* Request from the host */
 #define CUSTOM_REQ_TMP  0
 
 static volatile uint8_t ints = 0;
@@ -52,6 +53,14 @@ ISR(TIMER0_COMPA_vect) {
 }
 
 EMPTY_INTERRUPT(ADC_vect);
+
+/**
+ * Sets up the pins.
+ */
+static void initPins(void) {
+	// set LED pin as output pin
+	DDRB |= (1 << PB0);
+}
 
 /**
  * Sets up the timer.
@@ -131,8 +140,7 @@ usbMsgLen_t usbFunctionSetup(uchar data[8]) {
      * The only implemented request. It calculates the temperature and humidity
      * from the respective average measurement value and transfers both 
      * multiplied by 10 and separated by the pipe character to the host.
-     * This is a nice alternative to usbFunctionRead() allowing to write more 
-     * than 8 bytes at once.
+     * Setting usbMsgPtr is a nice alternative to using usbFunctionRead().
      */
     if (req->bRequest == CUSTOM_REQ_TMP) {
         // temperature in °C multiplied by 10
@@ -156,8 +164,9 @@ usbMsgLen_t usbFunctionSetup(uchar data[8]) {
 }
 
 /**
- * Calibrates the internal oscillator based on measurements from V-USB.
- * Called by V-USB after device reset. Thanks to Joonas Pihlajamaa, 
+ * Calibrates the internal oscillator based on measurements from V-USB
+ * after device reset, saving a crystal and two capaciators and making the two
+ * required ADC input pins available. Thanks to Joonas Pihlajamaa, 
  * https://codeandlife.com/2012/02/22/v-usb-with-attiny45-attiny85-without-a-crystal/
  */
 void hadUsbReset() {
@@ -192,6 +201,7 @@ void hadUsbReset() {
 
 int main(void) {
 
+    initPins();
     initTimer();
     initADC();
     initUSB();
@@ -203,12 +213,14 @@ int main(void) {
 
         /**
          * Measure temperature and humidity and update the average values
-         * once about every second.
+         * and flash the LED once about every second.
          */
         if (ints >= INTS_SEC) {
             ints = 0;
+            PORTB |= (1 << PIN_LED);
             mVAvgTmp = measure(PIN_TMP, mVAvgTmp);
             mvAvgRh = measure(PIN_RH, mvAvgRh);
+            PORTB &= ~(1 << PIN_LED);
         }
         usbPoll();
     }

@@ -3,4 +3,7 @@
 - update V-USB?
 x measure and calculate humidity
 - add LED?
-- add capaciator to TMP36? No, there is already a 100nF and 10uF
+- add capaciator to TMP36? No, there is already a 100nF and 10uF - but it still
+  seems to make readings more stable with the suboptimal test circuit...
+- document fuses to set
+- pull-up unconnected pins
