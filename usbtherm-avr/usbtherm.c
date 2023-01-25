@@ -144,6 +144,7 @@ usbMsgLen_t usbFunctionSetup(uchar data[8]) {
      */
     if (req->bRequest == CUSTOM_REQ_TMP) {
         if (mVAvgTmp == -1 || mvAvgRh == -1) {
+            // return no data if not yet measured
             return 0;
         }
 
@@ -161,7 +162,7 @@ usbMsgLen_t usbFunctionSetup(uchar data[8]) {
         return sizeof(msg);
     }
 
-    // Return no data for unimplemented requests.
+    // return no data for unimplemented requests.
     return 0;
 }
 
