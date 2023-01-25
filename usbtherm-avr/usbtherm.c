@@ -54,7 +54,7 @@ ISR(TIMER0_COMPA_vect) {
 
 EMPTY_INTERRUPT(ADC_vect);
 
-/**
+/*
  * Sets up the pins.
  */
 static void initPins(void) {
@@ -62,7 +62,7 @@ static void initPins(void) {
 	DDRB |= (1 << PB0);
 }
 
-/**
+/*
  * Sets up the timer.
  */
 static void initTimer(void) {
@@ -76,7 +76,7 @@ static void initTimer(void) {
     TIMSK |= (1 << OCIE0A);
 }
 
-/**
+/*
  * Sets up the ADC.
  */
 static void initADC(void) {
@@ -93,7 +93,7 @@ static void initADC(void) {
     ADCSRA |= (1 << ADEN);
 }
 
-/**
+/*
  * Sets up V-USB.
  */
 static void initUSB(void) {
@@ -104,12 +104,12 @@ static void initUSB(void) {
     usbDeviceConnect();
 }
 
-/**
+/*
  * Measures the voltage at the given pin with 16x oversampling during
  * idle sleep mode to reduce digital noise, updates the given exponential
  * weighted moving average and returns it.
  */
-static int32_t measure(uint8_t pin, int32_t mVAvg) {
+static uint32_t measure(uint8_t pin, uint32_t mVAvg) {
     ADMUX = (0xf0 & ADMUX) | pin;
 
     uint32_t overValue = 0;
@@ -130,7 +130,7 @@ static int32_t measure(uint8_t pin, int32_t mVAvg) {
     }
 }
 
-/**
+/*
  * Sets up the implemented requests.
  */
 usbMsgLen_t usbFunctionSetup(uchar data[8]) {
@@ -148,7 +148,7 @@ usbMsgLen_t usbFunctionSetup(uchar data[8]) {
         }
 
         // temperature in °C multiplied by 10
-        uint16_t tmpx10 = (mVAvgTmp >> EWMA_BS) - TMP36_MV_0C;
+        int16_t tmpx10 = (mVAvgTmp >> EWMA_BS) - TMP36_MV_0C;
         // relative humidity in % multiplied by 10
         uint32_t rhx10 = (mvAvgRh * 100 - (75750 << EWMA_BS)) / (318 << EWMA_BS);
         // temperature compensation of relative humidity
@@ -161,13 +161,11 @@ usbMsgLen_t usbFunctionSetup(uchar data[8]) {
         return sizeof(msg);
     }
 
-    /**
-     * Return no data for unimplemented requests.
-     */
+    // Return no data for unimplemented requests.
     return 0;
 }
 
-/**
+/*
  * Calibrates the internal oscillator based on measurements from V-USB
  * after device reset, saving a crystal and two capaciators and making the two
  * required ADC input pins available. Thanks to Joonas Pihlajamaa, 
@@ -215,7 +213,7 @@ int main(void) {
 
     while (true) {
 
-        /**
+        /*
          * Measure temperature and humidity and update the average values
          * and flash the LED once about every second.
          */
