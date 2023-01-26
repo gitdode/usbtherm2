@@ -162,7 +162,7 @@ usbMsgLen_t usbFunctionSetup(uchar data[8]) {
         return sizeof(msg);
     }
 
-    // return no data for unimplemented requests.
+    // return no data for unimplemented requests
     return 0;
 }
 

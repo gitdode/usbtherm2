@@ -3,6 +3,8 @@
 # Simplified version from: https://github.com/hexagon5un/AVR-Programming
 
 MCU = attiny45
+# for NetBeans, see https://www.nongnu.org/avr-libc/user-manual/using_tools.html
+MMCU = __AVR_ATtiny45__
 F_CPU = 16500000
 BAUD = 9600
 PROGRAMMER_TYPE = avrispmkII
@@ -18,6 +20,7 @@ AVRSIZE = avr-size
 AVRDUDE = avrdude
 
 CFLAGS = -mmcu=$(MCU) -DF_CPU=$(F_CPU)UL -DBAUD=$(BAUD) 
+CFLAGS += -D$(MMCU)
 CFLAGS += -Os -I.
 CFLAGS += -funsigned-char -funsigned-bitfields -fpack-struct -fshort-enums 
 CFLAGS += -Wall -Wstrict-prototypes
