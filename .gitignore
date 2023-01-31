@@ -1,1 +1,3 @@
 /usbtherm-ui/target/
+/usbtherm-avr/nbproject/private/
+/usbtherm-kicad/usbtherm-backups/

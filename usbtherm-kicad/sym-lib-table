@@ -1,0 +1,3 @@
+(sym_lib_table
+  (lib (name "USB-A-PLUG")(type "KiCad")(uri "${KIPRJMOD}/USB-A-PLUG/USB_A_PLUG.kicad_sym")(options "")(descr ""))
+)

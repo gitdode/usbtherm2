@@ -7,3 +7,5 @@ x add LED?
   seems to make readings more stable with the suboptimal test circuit...
 - document fuses to set
 - pull-up unconnected pins
+- try ADC Noise Reduction mode
+- try debugging
