@@ -33,7 +33,7 @@
 #define AREF_MV         5000
 
 /* Weight of the exponential weighted moving average as bit shift */
-#define EWMA_BS         4
+#define EWMA_BS         8
 
 /* Output of the TMP36 is 750 mV @ 25°C, 10 mV per °C */
 #define TMP36_MV_0C     500
@@ -151,9 +151,9 @@ usbMsgLen_t usbFunctionSetup(uchar data[8]) {
         // temperature in °C multiplied by 10
         int16_t tmpx10 = (mVAvgTmp >> EWMA_BS) - TMP36_MV_0C;
         // relative humidity in % multiplied by 10
-        uint32_t rhx10 = (mvAvgRh * 100 - (75750 << EWMA_BS)) / (318 << EWMA_BS);
+        uint32_t rhx10 = (mvAvgRh * 100 - (75750UL << EWMA_BS)) / (318UL << EWMA_BS);
         // temperature compensation of relative humidity
-        rhx10 = (rhx10 * 1000000) / (1054600 - tmpx10 * 216);
+        rhx10 = (rhx10 * 1000000) / (1054600 - tmpx10 * 216UL);
 
         static char msg[16];
         snprintf(msg, sizeof(msg), "%d|%ld", tmpx10, rhx10);
