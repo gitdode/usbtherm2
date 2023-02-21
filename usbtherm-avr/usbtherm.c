@@ -33,7 +33,7 @@
 #define AREF_MV         5000
 
 /* Weight of the exponential weighted moving average as bit shift */
-#define EWMA_BS         8
+#define EWMA_BS         6
 
 /* Output of the TMP36 is 750 mV @ 25°C, 10 mV per °C */
 #define TMP36_MV_0C     500

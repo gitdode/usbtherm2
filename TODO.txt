@@ -9,6 +9,3 @@ x add capaciator to TMP36? No, there is already a 100nF and 10uF - but it still
 x pull-up unconnected pins
 - try ADC Noise Reduction mode
 - try debugging
-- recalibrate oscillator every n minutes to account for frequency shifts 
-  caused by significant temperature changes (20°C -> 40°C causes frequent
-  I/O-errors, reconnecting resolves that)
